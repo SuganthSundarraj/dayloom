@@ -83,7 +83,7 @@ test("demo is honest about persistence and responsive", async ({ page }) => {
     ),
   ).toBe(true);
   await page.screenshot({
-    path: `test-results/folio-${test.info().project.name}.png`,
+    path: `test-results/dayloom-${test.info().project.name}.png`,
     fullPage: true,
   });
 });

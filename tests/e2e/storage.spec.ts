@@ -6,12 +6,12 @@ async function mockStorage(page: Page, failSave: boolean) {
     route.fulfill({
       json: {
         configured: true,
-        url: "https://folio-test.supabase.co",
+        url: "https://dayloom-test.supabase.co",
         key: "sb_publishable_example",
       },
     }),
   );
-  await page.route("https://folio-test.supabase.co/**", async (route) => {
+  await page.route("https://dayloom-test.supabase.co/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     if (url.pathname.includes("/auth/v1/token")) {
@@ -96,9 +96,9 @@ test("storage failure preserves editable note text", async ({ page }) => {
   await expect(page.getByRole("dialog").getByRole("alert")).toContainText(
     "input is still here",
   );
-  await expect(page.getByRole("textbox", { name: "Your note", exact: true })).toHaveValue(
-    "Keep my input when storage fails.",
-  );
+  await expect(
+    page.getByRole("textbox", { name: "Your note", exact: true }),
+  ).toHaveValue("Keep my input when storage fails.");
   await expect(
     page.getByRole("button", { name: "Save note", exact: true }),
   ).toBeEnabled();

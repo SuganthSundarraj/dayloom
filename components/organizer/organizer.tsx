@@ -3,14 +3,12 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import {
   BookOpen,
-  CalendarDays,
   Check,
-  CheckCheck,
   ChevronRight,
   Circle,
   Clock3,
   FileText,
-  LayoutGrid,
+  Spline,
   ListTodo,
   LogOut,
   Pin,
@@ -20,7 +18,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import {
-  dailyPlan,
   demoWorkspace,
   localDate,
   searchNotes,
@@ -38,6 +35,7 @@ import {
   parseConfig,
 } from "@/lib/organizer/repository";
 import Dialog from "./dialog";
+import DayView from "./day-view";
 
 import type { View, Editor } from "./types";
 import { TaskEditor, NoteEditor, AccountForm } from "./editors";
@@ -46,12 +44,6 @@ const labels = {
   tasks: "All tasks",
   notes: "My notes",
   memory: "Memory",
-};
-const navIcons = {
-  today: CalendarDays,
-  tasks: ListTodo,
-  notes: FileText,
-  memory: BookOpen,
 };
 import { blankTask, blankNote } from "./factories";
 
@@ -150,7 +142,6 @@ export default function Organizer() {
   const today = localDate();
   const openTasks = workspace.tasks.filter((t) => !t.completed);
   const due = openTasks.filter((t) => t.due_date && t.due_date <= today);
-  const totalMinutes = openTasks.reduce((sum, t) => sum + t.minutes, 0);
   const visibleTasks = workspace.tasks.filter(
     (t) =>
       (filter === "all" || (filter === "done" ? t.completed : !t.completed)) &&
@@ -332,7 +323,9 @@ export default function Organizer() {
             {task.note_id && " · Linked note"}
           </small>
         </button>
-        <span className={`priority ${task.priority}`}>{task.priority}</span>
+        <span className={`priority ${task.priority}`}>
+          <span aria-hidden="true" /> {task.priority}
+        </span>
         <span className="duration">
           <Clock3 size={14} />
           {task.minutes} min
@@ -350,7 +343,7 @@ export default function Organizer() {
   function noteCard(note: Note) {
     return (
       <button
-        className="note-card"
+        className={`note-card ${note.pinned ? "pinned-note" : ""}`}
         key={note.id}
         onClick={() =>
           openEditor({ kind: "note", value: { ...note, tags: [...note.tags] } })
@@ -375,84 +368,22 @@ export default function Organizer() {
       <a className="skip-link" href="#workspace">
         Skip to workspace
       </a>
-      <aside className="sidebar">
-        <button
-          className="brand"
-          onClick={() => changeView("today")}
-          aria-label="Folio home"
-        >
-          <span className="brand-mark">
-            <LayoutGrid size={23} />
-          </span>
-          folio<span className="brand-period">.</span>
-        </button>
-        <div className="workspace-label">YOUR WORKSPACE</div>
-        <nav aria-label="Main navigation">
-          {(Object.keys(labels) as View[]).map((key) => {
-            const Icon = navIcons[key];
-            return (
-              <button
-                key={key}
-                aria-current={view === key ? "page" : undefined}
-                className={view === key ? "nav-item active" : "nav-item"}
-                onClick={() => changeView(key)}
-              >
-                <Icon size={19} />
-                {labels[key]}
-                {key === "tasks" && (
-                  <span className="nav-count">{openTasks.length}</span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="ai-status">
-            <Sparkles size={19} />
-            <div>
-              <strong>AI, when you need it</strong>
-              <p>
-                Task extraction is off.
-                <br />
-                Your workspace still works.
-              </p>
-            </div>
-          </div>
+      <header className="workspace-header">
+        <div className="masthead">
           <button
-            className="nav-item"
-            onClick={() => openEditor({ kind: "settings" })}
+            className="brand"
+            onClick={() => changeView("today")}
+            aria-label="Dayloom home"
           >
-            <Settings2 size={18} />
-            Settings & connection
-          </button>
-          <button
-            className="profile"
-            onClick={() => openEditor({ kind: "account" })}
-          >
-            <span className="avatar">
-              {user ? user.email?.slice(0, 1).toUpperCase() : "F"}
+            <span className="brand-mark">
+              <Spline size={26} />
             </span>
-            <span>
-              <strong>{user ? user.email : "Your personal space"}</strong>
-              <small>
-                {demo
-                  ? "Exploring the demo"
-                  : user
-                    ? "Private workspace"
-                    : "Sign in to save"}
-              </small>
+            dayloom
+            <span className="brand-period" aria-hidden="true">
+              /
             </span>
-            <ChevronRight size={15} />
           </button>
-        </div>
-      </aside>
-      <div className="main-shell">
-        <header className="topbar">
-          <span>
-            Personal workspace{" "}
-            <span className="breadcrumb">/ {labels[view]}</span>
-          </span>
-          <div className="topbar-right">
+          <div className="header-tools">
             <span className="mode-badge">
               {demo
                 ? "Demo workspace"
@@ -467,37 +398,105 @@ export default function Organizer() {
             >
               <Settings2 size={19} />
             </button>
+            <button
+              className="profile"
+              aria-label={
+                user ? `Account for ${user.email}` : "Open your account"
+              }
+              onClick={() => openEditor({ kind: "account" })}
+            >
+              <span className="avatar">
+                {user ? user.email?.slice(0, 1).toUpperCase() : "D"}
+              </span>
+              <span className="profile-label">
+                {user ? user.email : "Your space"}
+              </span>
+            </button>
           </div>
-        </header>
+        </div>
+        <div className="navigation-line">
+          <nav aria-label="Main navigation">
+            {(Object.keys(labels) as View[]).map((key, index) => (
+              <button
+                key={key}
+                aria-current={view === key ? "page" : undefined}
+                className={view === key ? "nav-item active" : "nav-item"}
+                onClick={() => changeView(key)}
+              >
+                <span className="nav-index" aria-hidden="true">
+                  0{index + 1}
+                </span>
+                {labels[key]}
+                {key === "tasks" && (
+                  <span className="nav-count">{openTasks.length}</span>
+                )}
+              </button>
+            ))}
+          </nav>
+          <span className="navigation-aside">PERSONAL WORKSPACE</span>
+        </div>
+      </header>
+      <div className="main-shell">
         <main id="workspace">
-          <div className="page-heading">
-            <div>
+          <div
+            className={`page-heading ${view === "today" ? "today-heading" : ""}`}
+          >
+            {view === "today" && (
+              <div
+                className="date-stamp"
+                aria-label={new Date().toLocaleDateString("en", {
+                  dateStyle: "full",
+                })}
+              >
+                <span>
+                  {new Date().toLocaleDateString("en", { weekday: "short" })}
+                </span>
+                <strong>{String(new Date().getDate()).padStart(2, "0")}</strong>
+                <span>
+                  {new Date().toLocaleDateString("en", {
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
+            )}
+            <div className="heading-copy">
               <div className="eyebrow">
                 {view === "today"
-                  ? new Date().toLocaleDateString("en", {
-                      weekday: "long",
-                      month: "long",
-                      day: "numeric",
-                    })
-                  : "A PLACE FOR EVERYTHING"}
+                  ? "THE DAILY VIEW"
+                  : view === "tasks"
+                    ? "MOVE THINGS FORWARD"
+                    : view === "notes"
+                      ? "YOUR NOTEBOOK"
+                      : "BACK TO THE SOURCE"}
               </div>
               <h1>
-                {view === "today"
-                  ? "Make room for what matters."
-                  : view === "tasks"
-                    ? "One thing at a time."
-                    : view === "notes"
-                      ? "Keep a thought. Find it later."
-                      : "Pick up where you left off."}
+                {view === "today" ? (
+                  <>
+                    Today, in <em>perspective.</em>
+                  </>
+                ) : view === "tasks" ? (
+                  <>
+                    Choose your <em>next move.</em>
+                  </>
+                ) : view === "notes" ? (
+                  <>
+                    Thoughts worth <em>keeping.</em>
+                  </>
+                ) : (
+                  <>
+                    Find the <em>thread.</em>
+                  </>
+                )}
               </h1>
               <p>
                 {view === "today"
-                  ? "A clear view of your tasks, thoughts, and the day ahead."
+                  ? "Your next steps and the thoughts behind them, together."
                   : view === "tasks"
-                    ? "Small steps, clear priorities, a little more headspace."
+                    ? "Give each task a little context. Then take the next step."
                     : view === "notes"
-                      ? "Your ideas and everyday details, together in one place."
-                      : "Search your saved notes and return to the original context."}
+                      ? "Keep the details, decisions, and ideas you’ll come back to."
+                      : "Search your notes and pick up the original context."}
               </p>
             </div>
             <button
@@ -515,6 +514,28 @@ export default function Organizer() {
               {view === "notes" || view === "memory" ? "New note" : "New task"}
             </button>
           </div>
+          {canEdit && !loading && (
+            <div className="workspace-summary">
+              <span>
+                <strong>{String(openTasks.length).padStart(2, "0")}</strong>open
+                tasks
+              </span>
+              <span>
+                <strong>{String(due.length).padStart(2, "0")}</strong>due today
+                & earlier
+              </span>
+              <span>
+                <strong>
+                  {String(workspace.notes.length).padStart(2, "0")}
+                </strong>
+                saved thoughts
+              </span>
+              <span className="ai-indicator">
+                <Sparkles size={14} />
+                AI extraction off
+              </span>
+            </div>
+          )}
           {demo && (
             <div className="demo-banner">
               <span>
@@ -526,7 +547,7 @@ export default function Organizer() {
               </button>
             </div>
           )}
-          {error && (
+          {error && !editor && (
             <div className="alert error" role="alert">
               {error}
             </div>
@@ -555,153 +576,19 @@ export default function Organizer() {
           ) : (
             <>
               {view === "today" && (
-                <>
-                  <div className="stats-grid">
-                    <div className="stat">
-                      <div>
-                        <span>On your list</span>
-                        <ListTodo size={18} />
-                      </div>
-                      <strong>
-                        {openTasks.length}
-                        <small>open tasks</small>
-                      </strong>
-                    </div>
-                    <div className="stat">
-                      <div>
-                        <span>Due today & earlier</span>
-                        <CalendarDays size={18} />
-                      </div>
-                      <strong>
-                        {due.length}
-                        <small>to keep in mind</small>
-                      </strong>
-                    </div>
-                    <div className="stat">
-                      <div>
-                        <span>Your notes</span>
-                        <FileText size={18} />
-                      </div>
-                      <strong>
-                        {workspace.notes.length}
-                        <small>thoughts collected</small>
-                      </strong>
-                    </div>
-                  </div>
-                  <div className="today-grid">
-                    <section className="panel task-panel">
-                      <div className="section-head">
-                        <h2>
-                          Your next steps <span>{openTasks.length}</span>
-                        </h2>
-                        <button
-                          className="text-button"
-                          onClick={() => changeView("tasks")}
-                        >
-                          View all
-                        </button>
-                      </div>
-                      {openTasks.length ? (
-                        openTasks.slice(0, 5).map(taskRow)
-                      ) : (
-                        <div className="empty">
-                          <CheckCheck size={28} />
-                          <h3>A little breathing room.</h3>
-                          <p>Add a task when you’re ready.</p>
-                        </div>
-                      )}
-                      <button
-                        className="add-row"
-                        onClick={() =>
-                          openEditor({ kind: "task", value: blankTask() })
-                        }
-                      >
-                        <Plus size={18} />
-                        Add a task
-                      </button>
-                    </section>
-                    <section className="planner panel">
-                      <div className="planner-icon">
-                        <CalendarDays size={23} />
-                      </div>
-                      <h2>A plan that fits your day.</h2>
-                      <p>
-                        Choose your available time. We’ll suggest a manageable
-                        list, starting with overdue tasks.
-                      </p>
-                      <label htmlFor="budget">Time available</label>
-                      <select
-                        id="budget"
-                        value={budget}
-                        onChange={(e) => {
-                          setBudget(Number(e.target.value));
-                          setPlan(null);
-                        }}
-                      >
-                        {[30, 60, 90, 120, 180, 240, 480].map((min) => (
-                          <option key={min} value={min}>
-                            {min < 60 ? `${min} minutes` : `${min / 60} hours`}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        className="primary"
-                        onClick={() =>
-                          setPlan(dailyPlan(workspace.tasks, budget, today))
-                        }
-                      >
-                        Build my plan
-                      </button>
-                      <small>Simple planning. No AI tokens needed.</small>
-                      {plan && (
-                        <div className="plan-result" role="status">
-                          <strong>
-                            {plan.length
-                              ? `${plan.reduce((sum, t) => sum + t.minutes, 0)} of ${budget} minutes planned`
-                              : "No tasks fit this time window."}
-                          </strong>
-                          {plan.map((t) => (
-                            <div key={t.id}>
-                              {t.title}
-                              <span>{t.minutes}m</span>
-                            </div>
-                          ))}
-                          <p>Future-dated tasks stay off today’s plan.</p>
-                        </div>
-                      )}
-                    </section>
-                  </div>
-                  <section className="notes-section">
-                    <div className="section-head">
-                      <h2>Close at hand</h2>
-                      <button
-                        className="text-button"
-                        onClick={() => changeView("notes")}
-                      >
-                        All notes
-                      </button>
-                    </div>
-                    <div className="note-grid">
-                      {searchNotes(workspace.notes, "")
-                        .slice(0, 2)
-                        .map(noteCard)}
-                      <button
-                        className="new-note-card"
-                        onClick={() =>
-                          openEditor({ kind: "note", value: blankNote() })
-                        }
-                      >
-                        <Plus size={25} />
-                        <strong>Catch a thought</strong>
-                        <span>Give your next idea a place.</span>
-                      </button>
-                    </div>
-                  </section>
-                  <p className="quiet-footer">
-                    {totalMinutes} minutes of open tasks. You don’t have to do
-                    everything today.
-                  </p>
-                </>
+                <DayView
+                  workspace={workspace}
+                  openTasks={openTasks}
+                  today={today}
+                  budget={budget}
+                  plan={plan}
+                  setBudget={setBudget}
+                  setPlan={setPlan}
+                  changeView={changeView}
+                  openEditor={openEditor}
+                  taskRow={taskRow}
+                  noteCard={noteCard}
+                />
               )}
               {view === "tasks" && (
                 <>
@@ -768,7 +655,11 @@ export default function Organizer() {
                       a result to read the source. AI answers are off.
                     </p>
                   )}
-                  <div className="note-grid library">{notes.map(noteCard)}</div>
+                  <div
+                    className={`note-grid library ${view === "memory" ? "memory-results" : ""}`}
+                  >
+                    {notes.map(noteCard)}
+                  </div>
                   {!notes.length && (
                     <div className="empty">
                       <Search size={28} />

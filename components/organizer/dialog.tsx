@@ -12,12 +12,29 @@ export default function Dialog({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
-    ref.current?.showModal();
+    const dialog = ref.current;
+    const previousFocus =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    dialog?.showModal();
+    // React mounts form inputs while the native dialog is still closed.
+    // Move focus after showModal so keyboard entry begins in the first field.
+    dialog
+      ?.querySelector<HTMLElement>("input:not([type=checkbox]),textarea,select")
+      ?.focus();
+    return () => {
+      dialog?.close();
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
   }, []);
   return (
     <dialog
       ref={ref}
-      onCancel={onClose}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           const bounds = e.currentTarget.getBoundingClientRect();

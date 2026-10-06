@@ -1,10 +1,10 @@
-# Folio — Notes & Tasks
+# Dayloom — Notes & Tasks
 
 A responsive personal organizer with manual tasks, linked notes, keyword memory search, and deterministic daily planning. AI extraction is deliberately disabled: there are no provider calls, API keys, or AI charges. A labelled, transient sample workspace is shown until Supabase is configured. Demo changes are never represented as saved data.
 
 ## Stack and structure
 
-React 19, strict TypeScript, Vinext (Next-compatible routes), Cloudflare Workers hosting, and Supabase Postgres/Auth. `components/organizer/` owns UI; `lib/organizer/domain.ts` owns pure validation, planning, search, and the disabled extraction boundary; `repository.ts` owns persistence; `app/api/config/route.ts` exposes only a public publishable key. Database constraints and Row Level Security enforce ownership independently of the UI. No service-role key is required or accepted by the public configuration endpoint.
+React 19, strict TypeScript, Vinext (Next-compatible routes), Cloudflare Workers hosting, and Supabase Postgres/Auth. `components/organizer/` owns UI, with `day-view.tsx` keeping the daily composition separate from the workspace controller; `lib/organizer/domain.ts` owns pure validation, planning, search, and the disabled extraction boundary; `repository.ts` owns persistence; `app/api/config/route.ts` exposes only a public publishable key. Database constraints and Row Level Security enforce ownership independently of the UI. No service-role key is required or accepted by the public configuration endpoint.
 
 ## Run locally
 
@@ -27,14 +27,14 @@ The currently checked Free plan includes 500 MB database storage and 1 GB file s
 
 - `npm run typecheck`
 - `npm run test:coverage`: pure workflow and persistence error tests, plus real PostgreSQL-compatible PGlite migration, constraints, RLS, and ownership checks. Thresholds apply to `lib/organizer/` (90% statements/lines/functions and 85% branches), not the entire UI.
-- `npx playwright install chromium`, then `npm run test:e2e`: desktop/mobile manual tasks, notes, search, planning, note deletion, AI-disabled behavior, and configuration failure checks.
+- `npx playwright install chromium`, then `npm run test:e2e`: desktop/mobile manual tasks, notes, search, planning, note deletion, AI-disabled behavior, configuration failure checks, keyboard focus/return, responsive layout, and automated WCAG A/AA checks across all four views.
 - `npm run build`: deployable Cloudflare Worker build.
 
 CI runs all these gates. PGlite and mocked persistence tests are not a substitute for real Supabase authentication/email checks.
 
 ## Update and redeploy
 
-This project has its own hosted source repository and versioned deployments via Sites. Keep changes within this directory. Ask Codex to update Folio and publish it; it will run checks, push the source, save a version, and deploy it using `.openai/hosting.json`'s project identity. The deployable archive is built from the same pushed source commit. Keep hosted environment settings separate from source.
+This project has its own hosted source repository and versioned deployments via Sites. Keep changes within this directory. Ask Codex to update Dayloom and publish it; it will run checks, push the source, save a version, and deploy it using `.openai/hosting.json`'s project identity. The deployable archive is built from the same pushed source commit. Keep hosted environment settings separate from source.
 
 For independent hosting, Cloudflare Workers can run the built Worker with assets. A React static frontend on Cloudflare Pages plus Supabase is also viable, but this project currently includes a Worker for public runtime configuration and is not a plain static Pages export. Do not upload the source directory as static assets.
 
