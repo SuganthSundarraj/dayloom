@@ -1,6 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
 const owner = "00000000-0000-4000-8000-000000000101";
-async function mockStorage(page: Page, failSave: boolean) {
+async function mockStorage(
+  page: Page,
+  failSave: boolean,
+  beforeSave?: () => Promise<void>,
+) {
   const saved: Record<string, unknown>[] = [];
   await page.route("**/api/config", (route) =>
     route.fulfill({
@@ -44,6 +48,7 @@ async function mockStorage(page: Page, failSave: boolean) {
     }
     if (url.pathname.includes("/rest/v1/")) {
       if (request.method() === "POST") {
+        await beforeSave?.();
         if (failSave) {
           await route.fulfill({
             status: 503,
@@ -115,4 +120,31 @@ test("saved notes are attributed to the user and loaded after reload", async ({
   await expect(
     page.getByRole("heading", { name: "A private thought", exact: true }),
   ).toBeVisible();
+});
+
+test("pending saves prevent editing and dismissal", async ({ page }) => {
+  let release = () => {};
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const saved = await mockStorage(page, false, () => pending);
+  try {
+    await writeNote(page);
+    const dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByRole("button", { name: "Close dialog" }),
+    ).toBeDisabled();
+    await expect(
+      dialog.getByRole("textbox", { name: "Note title", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      dialog.getByRole("textbox", { name: "Your note", exact: true }),
+    ).toBeDisabled();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeVisible();
+  } finally {
+    release();
+  }
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  expect(saved).toHaveLength(1);
 });

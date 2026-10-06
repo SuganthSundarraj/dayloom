@@ -4,7 +4,7 @@ A responsive personal organizer with manual tasks, linked notes, keyword memory 
 
 ## Stack and structure
 
-React 19, strict TypeScript, Vinext (Next-compatible routes), Cloudflare Workers hosting, and Supabase Postgres/Auth. `components/organizer/` owns UI, with `day-view.tsx` keeping the daily composition separate from the workspace controller; `lib/organizer/domain.ts` owns pure validation, planning, search, and the disabled extraction boundary; `repository.ts` owns persistence; `app/api/config/route.ts` exposes only a public publishable key. Database constraints and Row Level Security enforce ownership independently of the UI. No service-role key is required or accepted by the public configuration endpoint.
+React 19, strict TypeScript, Vinext (Next-compatible routes), Cloudflare Workers hosting, and Supabase Postgres/Auth. `components/organizer/` owns UI, with `day-view.tsx` keeping the daily composition separate from the workspace controller, a shared Radix UI dialog for modal/focus behavior, and `duration-field.tsx` for minutes, decimal hours, or hours-plus-minutes entry; `lib/organizer/domain.ts` owns pure validation, planning, search, and the disabled extraction boundary; `repository.ts` owns persistence; `app/api/config/route.ts` exposes only a public publishable key. Database constraints and Row Level Security enforce ownership independently of the UI. No service-role key is required or accepted by the public configuration endpoint.
 
 ## Run locally
 
@@ -27,7 +27,7 @@ The currently checked Free plan includes 500 MB database storage and 1 GB file s
 
 - `npm run typecheck`
 - `npm run test:coverage`: pure workflow and persistence error tests, plus real PostgreSQL-compatible PGlite migration, constraints, RLS, and ownership checks. Thresholds apply to `lib/organizer/` (90% statements/lines/functions and 85% branches), not the entire UI.
-- `npx playwright install chromium`, then `npm run test:e2e`: desktop/mobile manual tasks, notes, search, planning, note deletion, AI-disabled behavior, configuration failure checks, keyboard focus/return, responsive layout, and automated WCAG A/AA checks across all four views.
+- `npx playwright install chromium`, then `npm run test:e2e`: desktop/mobile manual tasks, notes, search, planning, note deletion, AI-disabled behavior, configuration failure checks, keyboard focus/return/trapping, dialog centering and bounds, duration conversions and limits, responsive layout, and automated WCAG A/AA checks across all four views.
 - `npm run build`: deployable Cloudflare Worker build.
 
 CI runs all these gates. PGlite and mocked persistence tests are not a substitute for real Supabase authentication/email checks.
@@ -41,3 +41,11 @@ For independent hosting, Cloudflare Workers can run the built Worker with assets
 ## Scope and tradeoffs
 
 Memory currently uses transparent keyword search and original source notes, not embeddings or generated answers. Planning uses overdue/due-today and undated tasks, deadline order, priority, duration, and stable ties; it never moves a future deadline or mutates tasks. Durations are user-entered and no calendar sync is performed. Simultaneous edits use last-write-wins. Large workspaces will require pagination before scaling. AI extraction remains off until a provider, secure server endpoint, usage limits, explicit review step, and failure tests are added; a missing provider never blocks the core workspace.
+
+## UI customization
+
+The shared dialog uses the installed open-source Radix UI primitives. Keep presentation in the `.dialog-*` styles and behavior in `components/organizer/dialog.tsx`; do not create separate modal positioning or focus logic per editor. `app/globals.css` owns the palette variables, spacing, layouts, and responsive rules. Update shared components and their styles together. Duration formats are presentation only: Supabase still stores integer minutes (5–480).
+
+For reusable components with editable source and CLI distribution, shadcn/ui is a suitable option (https://ui.shadcn.com/docs). It does not eliminate the need for responsive, accessibility, keyboard, and form-state checks. Dayloom now uses Radix directly for dialogs rather than claiming to have migrated every control to shadcn/ui.
+
+After a UI edit, run `npm run typecheck`, `npm run lint`, and `npm run test:e2e`; rerun coverage when domain or persistence changes. Use the Sites workflow above to commit, push, and publish the checked source. Production Supabase configuration stays in the hosting environment across redeployments.

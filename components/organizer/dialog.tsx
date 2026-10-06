@@ -1,65 +1,88 @@
 "use client";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useId, useRef, type ReactNode } from "react";
+import { Dialog as DialogPrimitive } from "radix-ui";
 import { X } from "lucide-react";
+
 export default function Dialog({
   title,
+  description,
+  busy = false,
   onClose,
   children,
 }: {
   title: string;
+  description?: string;
+  busy?: boolean;
   onClose: () => void;
   children: ReactNode;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const dialog = ref.current;
-    const previousFocus =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    dialog?.showModal();
-    // React mounts form inputs while the native dialog is still closed.
-    // Move focus after showModal so keyboard entry begins in the first field.
-    dialog
-      ?.querySelector<HTMLElement>("input:not([type=checkbox]),textarea,select")
-      ?.focus();
-    return () => {
-      dialog?.close();
-      if (previousFocus?.isConnected) previousFocus.focus();
-    };
-  }, []);
+  const descriptionId = useId();
+  const content = useRef<HTMLDivElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
   return (
-    <dialog
-      ref={ref}
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
+    <DialogPrimitive.Root
+      open
+      onOpenChange={(open) => {
+        if (!open && !busy) onClose();
       }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          const bounds = e.currentTarget.getBoundingClientRect();
-          if (
-            e.clientX < bounds.left ||
-            e.clientX > bounds.right ||
-            e.clientY < bounds.top ||
-            e.clientY > bounds.bottom
-          )
-            onClose();
-        }
-      }}
-      aria-labelledby="dialog-title"
     >
-      <div className="dialog-head">
-        <h2 id="dialog-title">{title}</h2>
-        <button
-          className="icon-button"
-          aria-label="Close dialog"
-          onClick={onClose}
-        >
-          <X size={20} />
-        </button>
-      </div>
-      {children}
-    </dialog>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="dialog-overlay" />
+        <div className="dialog-viewport">
+          <DialogPrimitive.Content
+            ref={content}
+            className="dialog-content"
+            aria-describedby={description ? descriptionId : undefined}
+            onOpenAutoFocus={(event) => {
+              previousFocus.current =
+                document.activeElement instanceof HTMLElement
+                  ? document.activeElement
+                  : null;
+              const firstField = content.current?.querySelector<HTMLElement>(
+                "input:not([type=checkbox]),textarea,select",
+              );
+              if (firstField) {
+                event.preventDefault();
+                firstField.focus();
+              }
+            }}
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              if (previousFocus.current?.isConnected)
+                previousFocus.current.focus();
+            }}
+            onEscapeKeyDown={(event) => {
+              if (busy) event.preventDefault();
+            }}
+            onPointerDownOutside={(event) => {
+              if (busy) event.preventDefault();
+            }}
+          >
+            <div className="dialog-head">
+              <DialogPrimitive.Title>{title}</DialogPrimitive.Title>
+              <DialogPrimitive.Close asChild>
+                <button
+                  type="button"
+                  className="dialog-close"
+                  aria-label="Close dialog"
+                  disabled={busy}
+                >
+                  <X size={20} />
+                </button>
+              </DialogPrimitive.Close>
+            </div>
+            {description && (
+              <DialogPrimitive.Description
+                id={descriptionId}
+                className="dialog-description"
+              >
+                {description}
+              </DialogPrimitive.Description>
+            )}
+            <div className="dialog-body">{children}</div>
+          </DialogPrimitive.Content>
+        </div>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }

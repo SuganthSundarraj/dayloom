@@ -701,6 +701,14 @@ export default function Organizer() {
       </div>
       {editor && (
         <Dialog
+          busy={busy}
+          description={
+            editor.kind === "task"
+              ? "Add the next step, a priority, and a time estimate."
+              : editor.kind === "note"
+                ? "Keep your ideas and the context behind your tasks."
+                : undefined
+          }
           title={
             editor.kind === "task"
               ? workspace.tasks.some((t) => t.id === editor.value.id)
