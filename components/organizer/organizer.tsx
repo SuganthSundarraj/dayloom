@@ -9,6 +9,10 @@ import {
   Clock3,
   FileText,
   Spline,
+  LayoutDashboard,
+  Brain,
+  CalendarDays,
+  UserRound,
   ListTodo,
   LogOut,
   Pin,
@@ -55,6 +59,7 @@ export default function Organizer() {
   const [view, setView] = useState<View>("today"),
     [editor, setEditor] = useState<Editor | null>(null),
     [query, setQuery] = useState("");
+  const [quickQuery, setQuickQuery] = useState("");
   const [status, setStatus] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -141,7 +146,6 @@ export default function Organizer() {
   }, []);
   const today = localDate();
   const openTasks = workspace.tasks.filter((t) => !t.completed);
-  const due = openTasks.filter((t) => t.due_date && t.due_date <= today);
   const visibleTasks = workspace.tasks.filter(
     (t) =>
       (filter === "all" || (filter === "done" ? t.completed : !t.completed)) &&
@@ -323,20 +327,25 @@ export default function Organizer() {
             {task.note_id && " · Linked note"}
           </small>
         </button>
-        <span className={`priority ${task.priority}`}>
-          <span aria-hidden="true" /> {task.priority}
-        </span>
-        <span className="duration">
-          <Clock3 size={14} />
-          {task.minutes} min
-        </span>
-        {task.due_date && (
-          <span
-            className={`due-date ${task.due_date < today && !task.completed ? "overdue" : ""}`}
-          >
-            {task.due_date === today ? "Today" : task.due_date}
+        <div className="task-details">
+          <span className={`priority ${task.priority}`}>
+            <span aria-hidden="true" /> {task.priority}
           </span>
-        )}
+          <span className="duration">
+            <Clock3 size={14} />
+            {task.minutes} min
+          </span>
+          {task.due_date && (
+            <span
+              className={`due-date ${task.due_date < today && !task.completed ? "overdue" : ""}`}
+            >
+              {task.due_date === today ? "Today" : task.due_date}
+            </span>
+          )}
+          <span className={`task-state ${task.completed ? "done" : "open"}`}>
+            {task.completed ? "Completed" : "To do"}
+          </span>
+        </div>
       </div>
     );
   }
@@ -369,134 +378,169 @@ export default function Organizer() {
         Skip to workspace
       </a>
       <header className="workspace-header">
-        <div className="masthead">
+        <button
+          className="brand"
+          onClick={() => changeView("today")}
+          aria-label="Dayloom home"
+        >
+          <span className="brand-mark">
+            <Spline size={24} />
+          </span>
+          <span>
+            <span className="brand-accent">Day</span>loom
+          </span>
+        </button>
+        <div className="mobile-tools">
           <button
-            className="brand"
-            onClick={() => changeView("today")}
-            aria-label="Dayloom home"
+            className="icon-button"
+            aria-label="Open settings"
+            onClick={() => openEditor({ kind: "settings" })}
           >
-            <span className="brand-mark">
-              <Spline size={26} />
-            </span>
-            dayloom
-            <span className="brand-period" aria-hidden="true">
-              /
-            </span>
+            <Settings2 size={19} />
           </button>
-          <div className="header-tools">
-            <span className="mode-badge">
-              {demo
-                ? "Demo workspace"
-                : user
-                  ? "Connected to Supabase"
-                  : "Welcome"}
-            </span>
-            <button
-              className="icon-button"
-              aria-label="Open settings"
-              onClick={() => openEditor({ kind: "settings" })}
-            >
-              <Settings2 size={19} />
-            </button>
-            <button
-              className="profile"
-              aria-label={
-                user ? `Account for ${user.email}` : "Open your account"
-              }
-              onClick={() => openEditor({ kind: "account" })}
-            >
-              <span className="avatar">
-                {user ? user.email?.slice(0, 1).toUpperCase() : "D"}
+          <button
+            className="icon-button"
+            aria-label={
+              user ? `Account for ${user.email}` : "Open your account"
+            }
+            onClick={() => openEditor({ kind: "account" })}
+          >
+            <UserRound size={19} />
+          </button>
+        </div>
+        <form
+          className="header-search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setView("tasks");
+            setFilter("all");
+            setQuery(quickQuery.trim());
+            setStatus("");
+          }}
+        >
+          <input
+            aria-label="Quick task search"
+            placeholder="Search your tasks…"
+            value={quickQuery}
+            onChange={(event) => setQuickQuery(event.target.value)}
+          />
+          <button aria-label="Find tasks" type="submit">
+            <Search size={19} />
+          </button>
+        </form>
+        <div className="header-tools">
+          <span className="mode-badge">
+            {demo
+              ? "Demo workspace"
+              : user
+                ? "Connected to Supabase"
+                : "Welcome"}
+          </span>
+          <div className="header-date">
+            <CalendarDays size={19} />
+            <div>
+              <strong>
+                {new Date().toLocaleDateString("en", { weekday: "long" })}
+              </strong>
+              <span>
+                {new Date().toLocaleDateString("en", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
               </span>
-              <span className="profile-label">
-                {user ? user.email : "Your space"}
-              </span>
-            </button>
+            </div>
           </div>
         </div>
-        <div className="navigation-line">
-          <nav aria-label="Main navigation">
-            {(Object.keys(labels) as View[]).map((key, index) => (
+      </header>
+      <aside className="workspace-sidebar">
+        <button
+          className="profile"
+          aria-label={user ? `Account for ${user.email}` : "Open your account"}
+          onClick={() => openEditor({ kind: "account" })}
+        >
+          <span className="avatar">
+            {user ? user.email?.slice(0, 1).toUpperCase() : "D"}
+          </span>
+          <strong>{user ? "Your workspace" : "Your personal space"}</strong>
+          <span className="profile-label">
+            {user ? user.email : "Notes, plans & little wins"}
+          </span>
+        </button>
+        <nav aria-label="Main navigation">
+          {(Object.keys(labels) as View[]).map((key) => {
+            const Icon =
+              key === "today"
+                ? LayoutDashboard
+                : key === "tasks"
+                  ? ListTodo
+                  : key === "notes"
+                    ? BookOpen
+                    : Brain;
+            return (
               <button
                 key={key}
                 aria-current={view === key ? "page" : undefined}
                 className={view === key ? "nav-item active" : "nav-item"}
                 onClick={() => changeView(key)}
               >
-                <span className="nav-index" aria-hidden="true">
-                  0{index + 1}
-                </span>
+                <Icon size={20} />
                 {labels[key]}
                 {key === "tasks" && (
                   <span className="nav-count">{openTasks.length}</span>
                 )}
               </button>
-            ))}
-          </nav>
-          <span className="navigation-aside">PERSONAL WORKSPACE</span>
+            );
+          })}
+        </nav>
+        <div className="sidebar-bottom">
+          <button
+            className="nav-item"
+            aria-label="Open settings"
+            onClick={() => openEditor({ kind: "settings" })}
+          >
+            <Settings2 size={20} />
+            Settings
+          </button>
+          <div className="sidebar-note">
+            <Sparkles size={18} />
+            <div>
+              <strong>Make room for your day.</strong>
+              <span>
+                AI extraction off. Your essentials work without tokens.
+              </span>
+            </div>
+          </div>
         </div>
-      </header>
+      </aside>
       <div className="main-shell">
         <main id="workspace">
-          <div
-            className={`page-heading ${view === "today" ? "today-heading" : ""}`}
-          >
-            {view === "today" && (
-              <div
-                className="date-stamp"
-                aria-label={new Date().toLocaleDateString("en", {
-                  dateStyle: "full",
-                })}
-              >
-                <span>
-                  {new Date().toLocaleDateString("en", { weekday: "short" })}
-                </span>
-                <strong>{String(new Date().getDate()).padStart(2, "0")}</strong>
-                <span>
-                  {new Date().toLocaleDateString("en", {
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </span>
-              </div>
-            )}
+          <div className="page-heading">
             <div className="heading-copy">
-              <div className="eyebrow">
-                {view === "today"
-                  ? "THE DAILY VIEW"
-                  : view === "tasks"
-                    ? "MOVE THINGS FORWARD"
-                    : view === "notes"
-                      ? "YOUR NOTEBOOK"
-                      : "BACK TO THE SOURCE"}
-              </div>
               <h1>
                 {view === "today" ? (
                   <>
-                    Today, in <em>perspective.</em>
+                    Welcome to your day{" "}
+                    <span className="greeting-wave" aria-hidden="true">
+                      ✦
+                    </span>
                   </>
                 ) : view === "tasks" ? (
-                  <>
-                    Choose your <em>next move.</em>
-                  </>
+                  "My tasks"
                 ) : view === "notes" ? (
-                  <>
-                    Thoughts worth <em>keeping.</em>
-                  </>
+                  "My notebook"
                 ) : (
-                  <>
-                    Find the <em>thread.</em>
-                  </>
+                  "Find it in your notes"
                 )}
               </h1>
               <p>
                 {view === "today"
-                  ? "Your next steps and the thoughts behind them, together."
+                  ? "A little focus. A little progress. All in one place."
                   : view === "tasks"
-                    ? "Give each task a little context. Then take the next step."
+                    ? "Keep your next steps in view."
                     : view === "notes"
-                      ? "Keep the details, decisions, and ideas you’ll come back to."
-                      : "Search your notes and pick up the original context."}
+                      ? "Your ideas, decisions, and the details worth keeping."
+                      : "Pick up a thought and return to its original context."}
               </p>
             </div>
             <button
@@ -514,28 +558,6 @@ export default function Organizer() {
               {view === "notes" || view === "memory" ? "New note" : "New task"}
             </button>
           </div>
-          {canEdit && !loading && (
-            <div className="workspace-summary">
-              <span>
-                <strong>{String(openTasks.length).padStart(2, "0")}</strong>open
-                tasks
-              </span>
-              <span>
-                <strong>{String(due.length).padStart(2, "0")}</strong>due today
-                & earlier
-              </span>
-              <span>
-                <strong>
-                  {String(workspace.notes.length).padStart(2, "0")}
-                </strong>
-                saved thoughts
-              </span>
-              <span className="ai-indicator">
-                <Sparkles size={14} />
-                AI extraction off
-              </span>
-            </div>
-          )}
           {demo && (
             <div className="demo-banner">
               <span>

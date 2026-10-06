@@ -55,3 +55,67 @@ test("task editor supports keyboard input and dismissal", async ({ page }) => {
     page.getByRole("button", { name: "New task", exact: true }),
   ).toBeFocused();
 });
+
+test("dashboard status reflects task completion and reopening", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByText("Demo workspace", { exact: true })).toBeVisible();
+  const status = page.getByRole("region", { name: "Task status" });
+  await expect(status).toContainText("0 tasks");
+  await page
+    .getByRole("button", {
+      name: "Complete Outline the presentation",
+      exact: true,
+    })
+    .click();
+  const completed = page.getByRole("region", { name: "Completed tasks" });
+  await expect(
+    completed.getByRole("button", {
+      name: "Reopen Outline the presentation",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(status).toContainText("33% of all tasks");
+  await completed
+    .getByRole("button", {
+      name: "Reopen Outline the presentation",
+      exact: true,
+    })
+    .click();
+  await expect(completed).toContainText(
+    "Your finished tasks will appear here.",
+  );
+  await expect(status).toContainText("0 tasks");
+});
+test("header search opens matching tasks and settings stays accessible", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByText("Demo workspace", { exact: true })).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "Quick task search" })
+    .fill("reading");
+  await page.getByRole("button", { name: "Find tasks", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "My tasks", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "Make time for a little reading Personal",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "Outline the presentation Work · Linked note",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Open settings", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Settings & connection" }),
+  ).toBeVisible();
+});
