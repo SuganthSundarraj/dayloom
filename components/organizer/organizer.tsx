@@ -20,6 +20,9 @@ import {
   Search,
   Settings2,
   Sparkles,
+  Inbox,
+  Timer,
+  Trash2,
 } from "lucide-react";
 import {
   demoWorkspace,
@@ -37,17 +40,40 @@ import {
   loadWorkspace,
   saveRecord,
   parseConfig,
+  setDeletedAt,
+  convertCapture,
+  controlFocus,
 } from "@/lib/organizer/repository";
+import {
+  activeRecords,
+  validateCapture,
+  transitionFocus,
+  type Capture,
+  type FocusAction,
+  type FocusSession,
+  type RecordTable,
+} from "@/lib/organizer/features";
 import Dialog from "./dialog";
 import DayView from "./day-view";
+import {
+  QuickCapture,
+  InboxView,
+  WeekView,
+  TrashView,
+  FocusView,
+} from "./productivity-views";
 
 import type { View, Editor } from "./types";
 import { TaskEditor, NoteEditor, AccountForm } from "./editors";
 const labels = {
   today: "Today",
+  inbox: "Inbox",
+  week: "Weekly plan",
   tasks: "All tasks",
   notes: "My notes",
   memory: "Memory",
+  focus: "Focus timer",
+  trash: "Trash",
 };
 import { blankTask, blankNote } from "./factories";
 
@@ -72,6 +98,11 @@ export default function Organizer() {
     [plan, setPlan] = useState<Task[] | null>(null);
   const client = useRef<SupabaseClient | null>(null),
     generation = useRef({ value: 0 });
+  const mutationLock = useRef(false);
+  const [undo, setUndo] = useState<{ table: RecordTable; id: string } | null>(
+    null,
+  );
+  const [focusTaskId, setFocusTaskId] = useState<string | null>(null);
   useEffect(() => {
     const counter = generation.current;
     let active = true;
@@ -99,6 +130,8 @@ export default function Organizer() {
           setWorkspace({ tasks: [], notes: [] });
           setDemo(false);
           setPlan(null);
+          setUndo(null);
+          setEditor(null);
           setLoading(!!session);
           if (session) {
             const version = counter.value;
@@ -145,8 +178,13 @@ export default function Organizer() {
     };
   }, []);
   const today = localDate();
-  const openTasks = workspace.tasks.filter((t) => !t.completed);
-  const visibleTasks = workspace.tasks.filter(
+  const activeWorkspace = {
+    ...workspace,
+    tasks: activeRecords(workspace.tasks),
+    notes: activeRecords(workspace.notes),
+  };
+  const openTasks = activeWorkspace.tasks.filter((t) => !t.completed);
+  const visibleTasks = activeWorkspace.tasks.filter(
     (t) =>
       (filter === "all" || (filter === "done" ? t.completed : !t.completed)) &&
       (t.title + " " + t.project).toLowerCase().includes(query.toLowerCase()),
@@ -159,6 +197,7 @@ export default function Organizer() {
     setEditor(next);
   }
   async function save(table: "tasks" | "notes", record: Task | Note) {
+    if (mutationLock.current) return false;
     const validation =
       table === "tasks"
         ? validateTask(record as Task)
@@ -171,29 +210,61 @@ export default function Organizer() {
       setError("Sign in to save your workspace.");
       return false;
     }
+    mutationLock.current = true;
     setBusy(true);
     setError("");
     const version = generation.current.value;
     try {
+      let savedRecord = record;
+      let converted: Capture | undefined;
+      const captureId =
+        table === "tasks" &&
+        editor?.kind === "task" &&
+        editor.value.id === record.id
+          ? editor.captureId
+          : undefined;
       if (!demo) {
         if (!client.current || !user)
           throw new Error("Sign in to save your changes.");
-        await saveRecord(client.current, table, record, user.id);
+        if (captureId) {
+          const result = await convertCapture(
+            client.current,
+            captureId,
+            record as Task,
+          );
+          savedRecord = result.task;
+          converted = result.capture;
+        } else await saveRecord(client.current, table, record, user.id);
+      } else if (captureId) {
+        const capture = workspace.captures?.find(
+          (item) => item.id === captureId,
+        );
+        if (capture)
+          converted = {
+            ...capture,
+            converted_at: new Date().toISOString(),
+            converted_task_id: record.id,
+          };
       }
       if (version !== generation.current.value) return false;
       setWorkspace((previous) =>
         table === "tasks"
           ? {
               ...previous,
+              captures: converted
+                ? (previous.captures ?? []).map((item) =>
+                    item.id === converted.id ? converted : item,
+                  )
+                : previous.captures,
               tasks: [
-                record as Task,
-                ...previous.tasks.filter((t) => t.id !== record.id),
+                savedRecord as Task,
+                ...previous.tasks.filter((t) => t.id !== savedRecord.id),
               ],
             }
           : {
               ...previous,
               notes: [
-                record as Note,
+                savedRecord as Note,
                 ...previous.notes.filter((n) => n.id !== record.id),
               ],
             },
@@ -212,38 +283,135 @@ export default function Organizer() {
       );
       return false;
     } finally {
+      mutationLock.current = false;
       setBusy(false);
     }
   }
-  async function remove(table: "tasks" | "notes", id: string) {
+  async function mutateFeature(
+    operation: () => Promise<void>,
+    update: (previous: Workspace) => Workspace,
+    message: string,
+  ): Promise<boolean> {
+    if (mutationLock.current) return false;
+    if (!canEdit) {
+      setError("Sign in to save your workspace.");
+      return false;
+    }
+    mutationLock.current = true;
     setBusy(true);
     setError("");
     const version = generation.current.value;
     try {
-      if (!demo) {
-        if (!client.current || !user)
-          throw new Error("Sign in to delete an item.");
-        await deleteRecord(client.current, table, id);
-      }
-      if (version !== generation.current.value) return;
-      setWorkspace((prev) =>
-        table === "tasks"
-          ? { ...prev, tasks: prev.tasks.filter((t) => t.id !== id) }
-          : {
-              notes: prev.notes.filter((n) => n.id !== id),
-              tasks: prev.tasks.map((t) =>
-                t.note_id === id ? { ...t, note_id: null } : t,
-              ),
-            },
-      );
+      if (!demo) await operation();
+      if (version !== generation.current.value) return false;
+      setWorkspace(update);
       setPlan(null);
       setEditor(null);
-      setStatus("Item deleted.");
+      setStatus(demo ? `${message} Demo changes reset on reload.` : message);
+      return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to delete.");
+      setError(
+        err instanceof Error ? err.message : "Unable to save. Please retry.",
+      );
+      return false;
     } finally {
+      mutationLock.current = false;
       setBusy(false);
     }
+  }
+  function database() {
+    if (!client.current || !user)
+      throw new Error("Sign in to save your changes.");
+    return client.current;
+  }
+  async function capture(text: string) {
+    const validation = validateCapture(text);
+    if (validation) {
+      setError(validation);
+      return false;
+    }
+    const item: Capture = {
+      id: crypto.randomUUID(),
+      text: text.trim(),
+      created_at: new Date().toISOString(),
+      deleted_at: null,
+      converted_at: null,
+      converted_task_id: null,
+    };
+    return mutateFeature(
+      () => saveRecord(database(), "captures", item, user!.id),
+      (previous) => ({
+        ...previous,
+        captures: [item, ...(previous.captures ?? [])],
+      }),
+      "Added to your inbox.",
+    );
+  }
+  async function moveToTrash(table: RecordTable, id: string, restore = false) {
+    const stamp = restore ? null : new Date().toISOString();
+    const success = await mutateFeature(
+      () => setDeletedAt(database(), table, id, stamp),
+      (previous) => ({
+        ...previous,
+        [table]: (previous[table] ?? []).map((item) =>
+          item.id === id ? { ...item, deleted_at: stamp } : item,
+        ),
+      }),
+      restore ? "Item restored." : "Moved to trash.",
+    );
+    if (success) setUndo(restore ? null : { table, id });
+  }
+  async function remove(table: RecordTable, id: string, permanent = false) {
+    if (!permanent) return moveToTrash(table, id);
+    const success = await mutateFeature(
+      () => deleteRecord(database(), table, id),
+      (previous) => {
+        const next = {
+          ...previous,
+          [table]: (previous[table] ?? []).filter((item) => item.id !== id),
+        };
+        if (table === "notes")
+          next.tasks = next.tasks.map((task) =>
+            task.note_id === id ? { ...task, note_id: null } : task,
+          );
+        if (table === "tasks") {
+          next.sessions = next.sessions?.map((session) =>
+            session.task_id === id ? { ...session, task_id: null } : session,
+          );
+          next.captures = next.captures?.map((item) =>
+            item.converted_task_id === id
+              ? { ...item, converted_task_id: null }
+              : item,
+          );
+        }
+        return next;
+      },
+      "Item permanently deleted.",
+    );
+    if (success && undo?.table === table && undo.id === id) setUndo(null);
+  }
+  async function timerControl(session: FocusSession, action: FocusAction) {
+    let saved =
+      action === "start"
+        ? session
+        : transitionFocus(session, action, Date.now());
+    return mutateFeature(
+      async () => {
+        saved = await controlFocus(database(), session, action);
+      },
+      (previous) => ({
+        ...previous,
+        sessions: [
+          saved,
+          ...(previous.sessions ?? []).filter((item) => item.id !== saved.id),
+        ],
+      }),
+      action === "finish"
+        ? "Focus session recorded."
+        : action === "pause"
+          ? "Timer paused."
+          : "Timer running.",
+    );
   }
   async function auth(event: FormEvent<HTMLFormElement>, signup: boolean) {
     event.preventDefault();
@@ -324,9 +492,26 @@ export default function Organizer() {
           <span>{task.title}</span>
           <small>
             {task.project}
-            {task.note_id && " · Linked note"}
+            {task.note_id &&
+              (workspace.notes.find((note) => note.id === task.note_id)
+                ?.deleted_at
+                ? " · Note in trash"
+                : " · Linked note")}
           </small>
         </button>
+        {!task.completed && (
+          <button
+            className="icon-button task-focus"
+            aria-label={`Focus on ${task.title}`}
+            disabled={busy}
+            onClick={() => {
+              setFocusTaskId(task.id);
+              changeView("focus");
+            }}
+          >
+            <Timer size={18} />
+          </button>
+        )}
         <div className="task-details">
           <span className={`priority ${task.priority}`}>
             <span aria-hidden="true" /> {task.priority}
@@ -476,7 +661,15 @@ export default function Organizer() {
                   ? ListTodo
                   : key === "notes"
                     ? BookOpen
-                    : Brain;
+                    : key === "inbox"
+                      ? Inbox
+                      : key === "week"
+                        ? CalendarDays
+                        : key === "focus"
+                          ? Timer
+                          : key === "trash"
+                            ? Trash2
+                            : Brain;
             return (
               <button
                 key={key}
@@ -494,6 +687,14 @@ export default function Organizer() {
           })}
         </nav>
         <div className="sidebar-bottom">
+          {workspace.sessions?.some((session) => !session.completed_at) && (
+            <button
+              className="nav-item focus-mini"
+              onClick={() => changeView("focus")}
+            >
+              <Timer size={19} /> Focus session active
+            </button>
+          )}
           <button
             className="nav-item"
             aria-label="Open settings"
@@ -529,8 +730,15 @@ export default function Organizer() {
                   "My tasks"
                 ) : view === "notes" ? (
                   "My notebook"
-                ) : (
+                ) : view === "memory" ? (
                   "Find it in your notes"
+                ) : (
+                  {
+                    inbox: "Catch it now. Sort it later.",
+                    week: "A little space for the week",
+                    focus: "Make time for one thing",
+                    trash: "A second chance",
+                  }[view]
                 )}
               </h1>
               <p>
@@ -540,12 +748,20 @@ export default function Organizer() {
                     ? "Keep your next steps in view."
                     : view === "notes"
                       ? "Your ideas, decisions, and the details worth keeping."
-                      : "Pick up a thought and return to its original context."}
+                      : view === "memory"
+                        ? "Pick up a thought and return to its original context."
+                        : view === "inbox"
+                          ? "Keep loose thoughts together until you’re ready to act."
+                          : view === "week"
+                            ? "Move tasks between days and see how much time you’ve planned."
+                            : view === "focus"
+                              ? "Start, pause, and finish a session at your own pace."
+                              : "Restore an item or choose to remove it for good."}
               </p>
             </div>
             <button
               className="primary"
-              disabled={!canEdit || loading}
+              disabled={!canEdit || loading || busy}
               onClick={() =>
                 openEditor(
                   view === "notes" || view === "memory"
@@ -579,6 +795,18 @@ export default function Organizer() {
               {status}
             </div>
           )}
+          {undo && (
+            <div className="undo-bar" role="status">
+              <span>Your last trashed item can be restored.</span>
+              <button
+                className="text-button"
+                disabled={busy}
+                onClick={() => void moveToTrash(undo.table, undo.id, true)}
+              >
+                Undo
+              </button>
+            </div>
+          )}
           {loading ? (
             <div className="empty">Loading your workspace…</div>
           ) : !canEdit ? (
@@ -598,18 +826,66 @@ export default function Organizer() {
           ) : (
             <>
               {view === "today" && (
-                <DayView
-                  workspace={workspace}
-                  openTasks={openTasks}
+                <>
+                  <QuickCapture busy={busy} capture={capture} />
+                  <DayView
+                    workspace={activeWorkspace}
+                    openTasks={openTasks}
+                    today={today}
+                    budget={budget}
+                    plan={plan}
+                    setBudget={setBudget}
+                    setPlan={setPlan}
+                    changeView={changeView}
+                    openEditor={openEditor}
+                    taskRow={taskRow}
+                    noteCard={noteCard}
+                  />
+                </>
+              )}
+              {view === "inbox" && (
+                <InboxView
+                  captures={workspace.captures ?? []}
+                  busy={busy}
+                  capture={capture}
+                  convert={(item) =>
+                    openEditor({
+                      kind: "task",
+                      value: { ...blankTask(), title: item.text.slice(0, 200) },
+                      captureId: item.id,
+                    })
+                  }
+                  trash={(table, id) => void moveToTrash(table, id)}
+                />
+              )}
+              {view === "week" && (
+                <WeekView
+                  tasks={workspace.tasks}
                   today={today}
-                  budget={budget}
-                  plan={plan}
-                  setBudget={setBudget}
-                  setPlan={setPlan}
-                  changeView={changeView}
-                  openEditor={openEditor}
-                  taskRow={taskRow}
-                  noteCard={noteCard}
+                  busy={busy}
+                  save={(task) => save("tasks", task)}
+                  edit={(task) =>
+                    openEditor({ kind: "task", value: { ...task } })
+                  }
+                />
+              )}
+              {view === "trash" && (
+                <TrashView
+                  workspace={workspace}
+                  busy={busy}
+                  restore={(table, id) => void moveToTrash(table, id, true)}
+                  purge={(table, id) =>
+                    openEditor({ kind: "delete", table, id, permanent: true })
+                  }
+                />
+              )}
+              {view === "focus" && (
+                <FocusView
+                  sessions={workspace.sessions ?? []}
+                  tasks={workspace.tasks}
+                  busy={busy}
+                  initialTaskId={focusTaskId}
+                  control={timerControl}
                 />
               )}
               {view === "tasks" && (
@@ -721,7 +997,9 @@ export default function Organizer() {
                 : editor.kind === "account"
                   ? "Your private workspace"
                   : editor.kind === "delete"
-                    ? "Delete this item?"
+                    ? editor.permanent
+                      ? "Delete permanently?"
+                      : "Move to trash?"
                     : "Settings & connection"
           }
           onClose={() => {
@@ -849,11 +1127,9 @@ export default function Organizer() {
           {editor.kind === "delete" && (
             <>
               <p>
-                This permanently removes the{" "}
-                {editor.table === "notes"
-                  ? "note. Linked tasks will be kept without the note link"
-                  : "task"}
-                .
+                {editor.permanent
+                  ? "This permanently removes the item and cannot be undone. Any linked tasks are kept."
+                  : "You can restore this item from Trash. Linked tasks and notes are kept."}
               </p>
               <div className="dialog-actions">
                 <button
@@ -866,9 +1142,15 @@ export default function Organizer() {
                 <button
                   className="danger"
                   disabled={busy}
-                  onClick={() => void remove(editor.table, editor.id)}
+                  onClick={() =>
+                    void remove(editor.table, editor.id, editor.permanent)
+                  }
                 >
-                  {busy ? "Deleting…" : "Delete permanently"}
+                  {busy
+                    ? "Saving…"
+                    : editor.permanent
+                      ? "Delete permanently"
+                      : "Move to trash"}
                 </button>
               </div>
             </>

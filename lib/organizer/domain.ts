@@ -9,6 +9,8 @@ export type Task = {
   completed: boolean;
   note_id: string | null;
   created_at: string;
+  scheduled_date?: string | null;
+  deleted_at?: string | null;
 };
 export type Note = {
   id: string;
@@ -17,13 +19,22 @@ export type Note = {
   tags: string[];
   pinned: boolean;
   created_at: string;
+  deleted_at?: string | null;
 };
-export type Workspace = { tasks: Task[]; notes: Note[] };
+export type Workspace = {
+  tasks: Task[];
+  notes: Note[];
+  captures?: import("./features").Capture[];
+  sessions?: import("./features").FocusSession[];
+};
 export function localDate(date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 export function validateTask(
-  task: Pick<Task, "title" | "minutes" | "due_date" | "priority">,
+  task: Pick<
+    Task,
+    "title" | "minutes" | "due_date" | "priority" | "scheduled_date"
+  >,
 ): string | null {
   if (!task.title.trim() || task.title.trim().length > 200)
     return "Use a task title between 1 and 200 characters.";
@@ -31,14 +42,14 @@ export function validateTask(
     return "Choose a duration between 5 and 480 minutes.";
   if (!["high", "medium", "low"].includes(task.priority))
     return "Choose a valid priority.";
-  if (
-    task.due_date &&
-    (!/^\d{4}-\d{2}-\d{2}$/.test(task.due_date) ||
-      Number.isNaN(Date.parse(task.due_date + "T00:00:00Z")) ||
-      new Date(task.due_date + "T00:00:00Z").toISOString().slice(0, 10) !==
-        task.due_date)
-  )
-    return "Choose a valid due date.";
+  for (const date of [task.due_date, task.scheduled_date])
+    if (
+      date &&
+      (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+        Number.isNaN(Date.parse(date + "T00:00:00Z")) ||
+        new Date(date + "T00:00:00Z").toISOString().slice(0, 10) !== date)
+    )
+      return "Choose a valid due or planned date.";
   return null;
 }
 export function validateNote(
@@ -58,7 +69,12 @@ export function dailyPlan(
   if (!Number.isInteger(budget) || budget < 0) return [];
   const rank = { high: 0, medium: 1, low: 2 };
   const candidates = tasks.filter(
-    (t) => !t.completed && (!t.due_date || t.due_date <= today),
+    (t) =>
+      !t.deleted_at &&
+      !t.completed &&
+      (t.scheduled_date
+        ? t.scheduled_date <= today
+        : !t.due_date || t.due_date <= today),
   );
   candidates.sort(
     (a, b) =>
@@ -77,6 +93,7 @@ export function dailyPlan(
   return plan;
 }
 export function searchNotes(notes: Note[], query: string): Note[] {
+  notes = notes.filter((note) => !note.deleted_at);
   const terms = query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
   if (!terms.length)
     return [...notes].sort(

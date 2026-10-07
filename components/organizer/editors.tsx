@@ -25,6 +25,9 @@ export function TaskEditor({
   setEditor,
   save,
 }: CommonProps & { editor: Extract<Editor, { kind: "task" }> }) {
+  const linkedNote = workspace.notes.find(
+    (note) => note.id === editor.value.note_id,
+  );
   return (
     <form
       onSubmit={(e) => {
@@ -101,6 +104,22 @@ export function TaskEditor({
               }
             />
           </label>
+          <label>
+            Planned day
+            <input
+              type="date"
+              value={editor.value.scheduled_date ?? ""}
+              onChange={(event) =>
+                setEditor({
+                  ...editor,
+                  value: {
+                    ...editor.value,
+                    scheduled_date: event.target.value || null,
+                  },
+                })
+              }
+            />
+          </label>
           <DurationField
             minutes={editor.value.minutes}
             onChange={(minutes) =>
@@ -123,14 +142,21 @@ export function TaskEditor({
             }
           >
             <option value="">No linked note</option>
-            {workspace.notes.map((n) => (
-              <option key={n.id} value={n.id}>
-                {n.title}
+            {linkedNote?.deleted_at && (
+              <option value={linkedNote.id} disabled>
+                {linkedNote.title} (in Trash)
               </option>
-            ))}
+            )}
+            {workspace.notes
+              .filter((note) => !note.deleted_at)
+              .map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.title}
+                </option>
+              ))}
           </select>
         </label>
-        {editor.value.note_id && (
+        {editor.value.note_id && !linkedNote?.deleted_at && (
           <button
             className="text-button"
             type="button"

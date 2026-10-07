@@ -10,13 +10,22 @@ import {
 import { demoWorkspace } from "../lib/organizer/domain";
 function mock(result: unknown) {
   const order = vi.fn().mockResolvedValue(result);
-  const eq = vi.fn().mockResolvedValue(result);
+  const query = {
+    eq: vi.fn(),
+    not: vi.fn(),
+    select: vi.fn(),
+    single: vi.fn().mockResolvedValue(result),
+  };
+  query.eq.mockReturnValue(query);
+  query.not.mockReturnValue(query);
+  query.select.mockReturnValue(query);
+  const eq = query.eq;
   const upsert = vi.fn().mockResolvedValue(result);
   const db = {
     from: vi.fn(() => ({
       select: () => ({ order }),
       upsert,
-      delete: () => ({ eq }),
+      delete: () => query,
     })),
   };
   return { db: db as unknown as SupabaseClient, upsert, eq };
@@ -57,7 +66,12 @@ it("validates configuration and rejects privileged or malformed keys", () => {
 });
 it("loads successful results", async () => {
   const { db } = mock({ data: [], error: null });
-  expect(await loadWorkspace(db)).toEqual({ tasks: [], notes: [] });
+  expect(await loadWorkspace(db)).toEqual({
+    tasks: [],
+    notes: [],
+    captures: [],
+    sessions: [],
+  });
 });
 it("surfaces read failures instead of a falsely empty workspace", async () => {
   const { db } = mock({ data: null, error: { message: "private details" } });

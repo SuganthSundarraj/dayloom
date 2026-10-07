@@ -505,7 +505,7 @@ main {
 }
 .task-row {
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr);
+  grid-template-columns: 22px minmax(0, 1fr) 36px;
   gap: 7px 12px;
   border: 1px solid #d6dce6;
   border-radius: 12px;
@@ -1550,4 +1550,64 @@ select:disabled {
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Productivity views share the dashboard's surfaces and spacing. */
+.task-focus { grid-column: 3; grid-row: 1; align-self: start; }
+.feature-stack { display: flex; flex-direction: column; gap: 24px; }
+.quick-capture { margin-bottom: 24px; padding: 22px; }
+.quick-capture > label { display: flex; align-items: center; gap: 9px; font-weight: 650; margin-bottom: 12px; }
+.capture-input-row { display: flex; align-items: center; gap: 16px; }
+.capture-input-row textarea { flex: 1; min-width: 0; resize: vertical; }
+.feature-stack .quick-capture { margin-bottom: 0; }
+.feature-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.inbox-list, .trash-list, .week-backlog, .week-toolbar { padding: 24px; }
+.capture-card { padding: 20px 0; border-top: 1px solid var(--line, #d6dce6); }
+.capture-card p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0 0 8px; }
+.capture-card small { display: block; color: #596477; margin-bottom: 12px; }
+.week-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
+.week-toolbar p { flex-basis: 100%; margin: 0; color: #596477; }
+.week-toolbar label { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.week-toolbar select { width: auto; }
+.week-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.week-day { padding: 18px; min-width: 0; }
+.week-day.is-today { border-color: #c04a59; box-shadow: inset 0 3px #c04a59; }
+.week-day h2 { display: flex; justify-content: space-between; gap: 8px; font-size: 1rem; }
+.week-day h2 span { color: #596477; font-weight: 500; }
+.capacity-count, .capacity-over, .week-empty { font-size: .875rem; }
+.capacity-count, .week-empty { color: #596477; }
+.capacity-over { color: #a12b3d; font-weight: 650; }
+.week-task { padding: 14px 0; border-top: 1px solid #d6dce6; }
+.week-task-title { display: block; text-align: left; overflow-wrap: anywhere; font-weight: 650; }
+.week-task small { display: block; color: #596477; margin: 7px 0 10px; }
+.week-task select { font-size: .875rem; }
+.backlog-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.trash-item { display: flex; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid #d6dce6; padding: 22px 0; }
+.trash-item > div:first-child { min-width: 0; }
+.trash-item h2 { font-size: 1rem; overflow-wrap: anywhere; margin: 0 0 6px; }
+.trash-item small { color: #596477; }
+.undo-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 18px; margin-bottom: 20px; border: 1px solid #aed2bf; background: #eff9f3; border-radius: 10px; }
+.focus-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; }
+.focus-panel, .focus-history { padding: 28px; min-width: 0; }
+.focus-panel h2 { overflow-wrap: anywhere; font-size: 1.4rem; }
+.timer-display { font-variant-numeric: tabular-nums; font-size: clamp(3rem, 7vw, 5rem); font-weight: 650; letter-spacing: -.04em; color: #a52d43; margin: 24px 0 14px; }
+.focus-help { color: #596477; font-size: .875rem; margin-top: 20px; }
+.focus-history h2 { font-size: 1.125rem; }
+.focus-history article { display: flex; flex-direction: column; gap: 7px; padding: 18px 0; border-top: 1px solid #d6dce6; overflow-wrap: anywhere; }
+.focus-history small { color: #596477; }
+.focus-mini { margin-bottom: 12px; }
+@media (max-width: 1200px) {
+ .week-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 950px) {
+ .week-grid, .backlog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ .focus-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 650px) {
+ .capture-input-row, .trash-item { flex-direction: column; align-items: stretch; }
+ .week-grid, .backlog-grid { grid-template-columns: minmax(0, 1fr); }
+ .week-toolbar label { margin-left: 0; flex-wrap: wrap; }
+ .quick-capture, .inbox-list, .trash-list, .week-backlog, .week-toolbar, .focus-panel, .focus-history { padding: 20px; }
+ .workspace-sidebar nav .nav-item { font-size: .875rem; }
+ .week-toolbar .feature-actions button { flex: 1; }
 }

@@ -60,7 +60,17 @@ test("linked task survives deleting its note", async ({ page }) => {
     .getByRole("button", { name: /A little direction for this week/ })
     .click();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
-  await page.getByRole("button", { name: "Delete permanently" }).click();
+  await page
+    .getByRole("button", { name: "Move to trash", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Trash", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Delete permanently", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Delete permanently", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "All tasks", exact: false })
     .first()

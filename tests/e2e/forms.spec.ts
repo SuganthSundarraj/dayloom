@@ -204,5 +204,5 @@ test("all editors fit the viewport, keep close reachable, and trap keyboard focu
     .getByRole("button", { name: /A little direction for this week/ })
     .click();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
-  await checkPopup("Delete this item?");
+  await checkPopup("Move to trash?");
 });
