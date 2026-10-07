@@ -1,4 +1,5 @@
 "use client";
+import { useFocusAlerts } from "./focus-alerts";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import {
@@ -103,6 +104,7 @@ export default function Organizer() {
     null,
   );
   const [focusTaskId, setFocusTaskId] = useState<string | null>(null);
+  const focusAlerts = useFocusAlerts(workspace.sessions ?? []);
   useEffect(() => {
     const counter = generation.current;
     let active = true;
@@ -391,6 +393,9 @@ export default function Organizer() {
     if (success && undo?.table === table && undo.id === id) setUndo(null);
   }
   async function timerControl(session: FocusSession, action: FocusAction) {
+    if (action === "start" || action === "resume") {
+      if (focusAlerts.soundEnabled) void focusAlerts.enableSound();
+    }
     let saved =
       action === "start"
         ? session
@@ -795,6 +800,17 @@ export default function Organizer() {
               {status}
             </div>
           )}
+          {focusAlerts.expired && (
+            <div className="undo-bar" role="alert">
+              <strong>Time’s up. Your focus timer has ended.</strong>
+              <button
+                className="text-button"
+                onClick={() => changeView("focus")}
+              >
+                View focus timer
+              </button>
+            </div>
+          )}
           {undo && (
             <div className="undo-bar" role="status">
               <span>Your last trashed item can be restored.</span>
@@ -886,6 +902,7 @@ export default function Organizer() {
                   busy={busy}
                   initialTaskId={focusTaskId}
                   control={timerControl}
+                  alerts={focusAlerts}
                 />
               )}
               {view === "tasks" && (

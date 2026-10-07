@@ -1,4 +1,5 @@
 "use client";
+import type { FocusAlerts } from "./focus-alerts";
 import { useEffect, useState } from "react";
 import {
   Inbox,
@@ -358,12 +359,14 @@ export function FocusView({
   busy,
   initialTaskId,
   control,
+  alerts,
 }: {
   sessions: FocusSession[];
   tasks: Task[];
   busy: boolean;
   initialTaskId: string | null;
   control: (session: FocusSession, action: FocusAction) => Promise<boolean>;
+  alerts: FocusAlerts;
 }) {
   const [taskId, setTaskId] = useState(initialTaskId ?? "");
   const [minutes, setMinutes] = useState(25);
@@ -475,7 +478,7 @@ export function FocusView({
                 <input
                   type="number"
                   required
-                  min={5}
+                  min={2}
                   max={480}
                   step={1}
                   value={minutes}
@@ -488,6 +491,48 @@ export function FocusView({
             </fieldset>
           </form>
         )}
+        <div className="focus-alert-settings">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={alerts.soundEnabled}
+              onChange={(event) => {
+                alerts.setSoundEnabled(event.target.checked);
+                if (event.target.checked) void alerts.enableSound();
+              }}
+            />
+            Sound when time is up
+          </label>
+          <div className="feature-actions">
+            <button
+              className="secondary"
+              onClick={() => void alerts.testSound()}
+            >
+              Test sound
+            </button>
+            <button
+              className="secondary"
+              disabled={
+                alerts.permission === "granted" ||
+                alerts.permission === "unsupported"
+              }
+              onClick={() => void alerts.enableNotifications()}
+            >
+              {alerts.permission === "granted"
+                ? "Notifications enabled"
+                : "Enable desktop notifications"}
+            </button>
+          </div>
+          <p className="focus-help">
+            2 minutes to 8 hours. Keep Dayloom open for alerts, even while using
+            another view.
+            {!alerts.soundReady &&
+              " Start, resume, or test sound to enable it after a reload."}
+            {alerts.permission === "unsupported" &&
+              " Desktop notifications are unavailable in this browser."}
+          </p>
+          {alerts.message && <p role="status">{alerts.message}</p>}
+        </div>
       </section>
       <section className="panel focus-history" aria-label="Focus history">
         <h2>Recent focus</h2>

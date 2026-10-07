@@ -1604,6 +1604,8 @@ select:disabled {
 .focus-history article { display: flex; flex-direction: column; gap: 7px; padding: 18px 0; border-top: 1px solid #dbdbdb; overflow-wrap: anywhere; }
 .focus-history small { color: #636363; }
 .focus-mini { margin-bottom: 12px; }
+.focus-alert-settings { display: flex; flex-direction: column; gap: 16px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+.focus-alert-settings .focus-help { margin-top: 0; }
 @media (max-width: 1200px) {
  .week-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }

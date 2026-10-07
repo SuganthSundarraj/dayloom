@@ -24,6 +24,7 @@ The app and Allure report have separate hosting: Sites deploys the app to Cloudf
 | CSS and Tailwind CSS 4 | White and dark grey palette, shared styles, responsive layouts, and control appearance | `app/globals.css` | Dayloom's design is primarily editable CSS classes and variables; Tailwind is also imported by the stylesheet. |
 | Radix UI | Shared dialogs, focus trapping, keyboard dismissal, and accessible modal semantics | `components/organizer/dialog.tsx` | Gives task, note, account, and confirmation dialogs a shared behavior foundation. |
 | Lucide React | Navigation and action icons | `components/organizer/` | Consistent icons that can be changed alongside component code. |
+| Web Audio and Notifications APIs | Focus completion chime and optional desktop notifications | `components/organizer/focus-alerts.ts` | Built-in browser APIs provide alerts without paid services; the in-app alert remains available when browser delivery is blocked. |
 | Supabase Auth | Email/password sign-in, signup, and account sessions | `components/organizer/organizer.tsx`, `lib/organizer/repository.ts` | Connects saved data to the signed-in user's identity. |
 | Supabase Postgres and SQL | Tasks, notes, captures, focus sessions, planned dates, trash state, and atomic operations | `supabase/migrations/` | Database constraints, Row Level Security, and transactional functions enforce ownership and consistency. |
 | Supabase JavaScript client | Auth requests, loading/saving records, and calling database functions | `lib/organizer/repository.ts` | Keeps storage operations behind a shared persistence layer. |
@@ -61,7 +62,7 @@ Use Node 24 LTS. Run `npm ci`, then `npm run dev`. To test real storage, create 
 ## Connect Supabase (free)
 
 1. Create an account at https://supabase.com/dashboard and create a project on a **Free** organization. Choose a nearby region and keep your database password private.
-2. Open SQL Editor. Run `supabase/migrations/202610060001_workspace.sql`, then `supabase/migrations/202610070001_productivity.sql`, once each in that order. Existing installations need only the second migration. Keep applied migrations immutable; use a new migration for future changes.
+2. Open SQL Editor. Run `supabase/migrations/202610060001_workspace.sql`, `supabase/migrations/202610070001_productivity.sql`, and `supabase/migrations/202610070002_focus_alerts.sql`, once each in that order. Existing installations need only migrations not yet applied. Keep applied migrations immutable; use a new migration for future changes.
 3. In Project Settings / API, obtain the project URL and the new `sb_publishable_…` public key. Do **not** use a secret key or a service-role key. This application deliberately supports the new public publishable key format only.
 4. Configure `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in your hosting environment and redeploy. For local development, set these in the ignored `.env` file.
 5. In Authentication / URL Configuration, set the Site URL to the final HTTPS app URL. Confirm email/password authentication is enabled. Set up a production email provider or a supported social sign-in flow before inviting a broad audience: Supabase's default mail delivery is restricted and is unsuitable for general public signup. The app currently implements email/password signup and login only.
@@ -76,7 +77,17 @@ The currently checked Free plan includes 500 MB database storage and 1 GB file s
 - **Quick-capture inbox:** save a thought without filling out a task form, then convert it into a task. The original thought remains available under Converted thoughts. Failed saves retain the input.
 - **Weekly planning:** assign tasks to a planned day separately from their deadlines, navigate weeks, and see remaining workload against a daily capacity. The capacity selector is a view preference that resets when the view is reopened; task assignments are saved.
 - **Trash and undo:** tasks, notes, and inbox thoughts move to Trash first. Undo restores the most recent removal during the current session; Trash supports restore after a reload. Items remain until explicitly deleted permanently through a confirmation dialog.
-- **Focus timer:** choose 5–480 minutes and optionally link an open task. Pause, resume, and finish sessions; elapsed time survives refreshes and excludes paused time. Finishing records actual focused time without automatically completing a task. One unfinished session per account is enforced in the database.
+- **Focus timer:** choose 2–480 minutes and optionally link an open task. Pause, resume, and finish sessions; elapsed time survives refreshes and excludes paused time. Finishing records actual focused time without automatically completing a task. One unfinished session per account is enforced in the database. Task estimates still have a five-minute minimum.
+
+### Focus completion alerts
+
+The timer plays a three-tone chime, displays an in-app alert across all workspace views, and changes the browser tab title when time runs out. Sound is enabled by starting/resuming the timer or using **Test sound**, and can be muted. After a reload, use Start/Resume/Test sound to enable audio again; browser autoplay rules can block sound without a user interaction.
+
+Use **Enable desktop notifications** in Focus timer and allow the browser prompt to receive an operating-system notification on supported desktop browsers, including on macOS. Browser and macOS notification settings, volume, and Do Not Disturb control delivery. Unsupported browsers, denied permissions, and audio failures leave the timer and in-app alert usable. Notifications use a generic message without task or note content.
+
+Keep the Dayloom tab open. Alerts also work when navigating to another Dayloom view. Background throttling or a sleeping computer can delay the alert until the browser resumes; this is not a closed-tab push notification or an OS alarm. Each session alerts once per tab, including across reloads when session storage is available. Separate devices/tabs can each alert. The session continues tracking elapsed time until you finish it explicitly.
+
+Existing Supabase installations must run `supabase/migrations/202610070002_focus_alerts.sql` after the two earlier migrations before deploying the two-minute timer. New installations must apply all three migrations in order. The migration changes only the focus duration constraint and preserves existing sessions and account policies.
 
 ## Quality checks
 
@@ -139,7 +150,7 @@ For example: “Add recurring tasks, test, push, and deploy” applies all relev
 
 ## UI customization
 
-The shared dialog uses the installed open-source Radix UI primitives. Keep presentation in the `.dialog-*` styles and behavior in `components/organizer/dialog.tsx`; do not create separate modal positioning or focus logic per editor. `app/globals.css` owns the palette variables, spacing, layouts, and responsive rules. Update shared components and their styles together. Duration formats are presentation only: Supabase still stores integer minutes (5–480).
+The shared dialog uses the installed open-source Radix UI primitives. Keep presentation in the `.dialog-*` styles and behavior in `components/organizer/dialog.tsx`; do not create separate modal positioning or focus logic per editor. `app/globals.css` owns the palette variables, spacing, layouts, and responsive rules. Update shared components and their styles together. Duration formats are presentation only: Supabase stores integer minutes (5–480 for task estimates, 2–480 for focus sessions).
 
 For reusable components with editable source and CLI distribution, shadcn/ui is a suitable option (https://ui.shadcn.com/docs). It does not eliminate the need for responsive, accessibility, keyboard, and form-state checks. Dayloom now uses Radix directly for dialogs rather than claiming to have migrated every control to shadcn/ui.
 
