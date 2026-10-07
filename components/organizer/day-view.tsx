@@ -53,19 +53,19 @@ export default function DayView({
       label: "Completed",
       count: completed.length,
       percent: total ? Math.round((completed.length / total) * 100) : 0,
-      color: "#25845b",
+      color: "var(--ring-completed)",
     },
     {
       label: "To do",
       count: openTasks.length,
       percent: total ? Math.round((openTasks.length / total) * 100) : 0,
-      color: "#4968ca",
+      color: "var(--ring-todo)",
     },
     {
       label: "Due / overdue",
       count: due.length,
       percent: total ? Math.round((due.length / total) * 100) : 0,
-      color: "#c23d4d",
+      color: "var(--ring-due)",
     },
   ];
   return (
