@@ -126,6 +126,17 @@ For independent hosting, Cloudflare Workers can run the built Worker with assets
 
 Memory currently uses transparent keyword search and original source notes, not embeddings or generated answers. Daily planning uses planned-today/overdue planned tasks, or overdue/due-today and undated tasks when no planned day is set, then deadline order, priority, duration, and stable ties; it never moves a future deadline or mutates tasks. Durations are user-entered and no calendar sync is performed. Simultaneous edits use last-write-wins. Large workspaces will require pagination before scaling. AI extraction remains off until a provider, secure server endpoint, usage limits, explicit review step, and failure tests are added; a missing provider never blocks the core workspace.
 
+## Assistant workflow and project skills
+
+Dayloom's [AGENTS.md](AGENTS.md) requires the assistant to consider implementation, verification, database impact, and release scope for every project change. You do not need to name individual skills in each request. Project skills are versioned under `.agents/skills/`:
+
+- [dayloom-change](.agents/skills/dayloom-change/SKILL.md): implementation, architecture, UI standards, and final diff review.
+- [dayloom-verify](.agents/skills/dayloom-verify/SKILL.md): relevant tests, accessibility, coverage, build checks, and accurate Allure evidence.
+- [dayloom-database](.agents/skills/dayloom-database/SKILL.md): Supabase migrations, authentication, account isolation, and rollout order.
+- [dayloom-release](.agents/skills/dayloom-release/SKILL.md): authorized commits/pushes, verification of CI for the delivered commit, and separate Sites deployment.
+
+For example: “Add recurring tasks, test, push, and deploy” applies all relevant workflows. “Update this label locally” selects the affected implementation and validation without automatically pushing or deploying. GitHub Actions remains the executable quality gate; skills guide the assistant and do not themselves schedule jobs or grant external access.
+
 ## UI customization
 
 The shared dialog uses the installed open-source Radix UI primitives. Keep presentation in the `.dialog-*` styles and behavior in `components/organizer/dialog.tsx`; do not create separate modal positioning or focus logic per editor. `app/globals.css` owns the palette variables, spacing, layouts, and responsive rules. Update shared components and their styles together. Duration formats are presentation only: Supabase still stores integer minutes (5–480).
