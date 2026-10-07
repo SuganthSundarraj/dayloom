@@ -32,6 +32,25 @@ The currently checked Free plan includes 500 MB database storage and 1 GB file s
 
 CI runs all these gates. PGlite and mocked persistence tests are not a substitute for real Supabase authentication/email checks.
 
+## Allure test reports
+
+Allure combines the Vitest unit/database suite and Playwright desktop/mobile suite in one HTML report. Browser steps, assertion failures, and failure screenshots/traces are included; coverage is uploaded separately alongside the report. Allure test pass rates are not code coverage percentages.
+
+Use Node 24 and Java 17 or newer, then run:
+
+```bash
+npm ci
+npx playwright install chromium
+npm run test:report
+npm run allure:open
+```
+
+`test:report` clears old results, runs both suites, and generates `allure-report/index.html` even if tests fail. Its exit status remains unsuccessful when any suite or generation fails. The single-file HTML can also be opened directly. Generated reports/results are ignored by Git. Individual test commands append Allure results; use `npm run allure:clean` before starting a fresh combined run and `npm run allure:generate` to generate manually.
+
+GitHub Actions uploads the report, raw results, and coverage as the `allure-report` artifact with 30-day retention. Runs on `main` also publish the latest report at https://suganthsundarraj.github.io/dayloom/. Pull requests generate downloadable artifacts without replacing that public report. Failed test runs can publish a red report while the Quality job remains failed. If setup fails before results exist, there is no new report and the previously published report remains. Tests currently use demo/mocked data and temporary PostgreSQL-compatible databases, without production Supabase credentials.
+
+Official integrations: https://allurereport.org/docs/playwright/ and https://allurereport.org/docs/vitest/.
+
 ## Update and redeploy
 
 This project has its own hosted source repository and versioned deployments via Sites. Keep changes within this directory. Ask Codex to update Dayloom and publish it; it will run checks, push the source, save a version, and deploy it using `.openai/hosting.json`'s project identity. The deployable archive is built from the same pushed source commit. Keep hosted environment settings separate from source.

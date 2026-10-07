@@ -1,24 +1,80 @@
 name: Quality
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   quality:
     runs-on: ubuntu-latest
+    outputs:
+      report_ready: ${{ steps.report.outputs.ready }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
       - run: npm ci
+        id: install
       - run: npx playwright install --with-deps chromium
+        id: browsers
       - run: npm run lint
       - run: npm run audit:production
       - run: npm run typecheck
-      - run: npm run test:coverage
-      - run: npm run test:e2e
+      - name: Unit and database tests with coverage
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run test:coverage
+      - name: Desktop and mobile browser tests
+        if: ${{ !cancelled() && steps.browsers.outcome == 'success' }}
+        run: npm run test:e2e
       - run: npm run build
+      - name: Generate Allure report
+        id: report
+        if: ${{ !cancelled() && hashFiles('allure-results/*-result.json') != '' }}
+        run: |
+          npm run allure:generate
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+          echo "### Allure report" >> "$GITHUB_STEP_SUMMARY"
+          echo "Download the allure-report artifact and open index.html. Raw results and coverage are also attached." >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload Allure report, raw results, and coverage
+        if: ${{ !cancelled() && steps.report.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: |
+            allure-report/
+            allure-results/
+            coverage/
+          retention-days: 30
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: browser-failures
           path: test-results/
+          if-no-files-found: ignore
+      - name: Package public report
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && steps.report.outcome == 'success' }}
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: allure-report/
+  publish-report:
+    # A red test run still publishes its report; the quality job stays failed.
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.quality.outputs.report_ready == 'true' }}
+    needs: quality
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish Allure report
+        id: deployment
+        uses: actions/deploy-pages@v4

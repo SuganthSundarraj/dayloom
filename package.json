@@ -15,6 +15,10 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "allure:clean": "node -e \"for (const path of ['allure-results', 'allure-report']) require('node:fs').rmSync(path, { recursive: true, force: true })\"",
+    "allure:generate": "allure generate allure-results --clean --single-file -o allure-report",
+    "allure:open": "allure open allure-report",
+    "test:report": "node scripts/test-report.mjs",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run test:coverage && npm run test:e2e",
     "audit:production": "npm audit --omit=dev"
@@ -59,6 +63,10 @@
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
     "@vitest/coverage-v8": "^3.2.7",
+    "@vitest/runner": "^3.2.7",
+    "allure-commandline": "^2.46.1",
+    "allure-playwright": "^3.13.0",
+    "allure-vitest": "^3.13.0",
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "^16.3.8",
@@ -77,7 +85,7 @@
   "type": "module",
   "overrides": {
     "miniflare": {
-      "sharp": "0.35.4"
+      "sharp": "0.35.5"
     }
   }
 }

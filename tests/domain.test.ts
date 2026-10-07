@@ -24,7 +24,7 @@ describe("task validation", () => {
   it("accepts a task without a deadline", () =>
     expect(validateTask({ ...base, due_date: null })).toBeNull());
   it.each(["", " ", "a".repeat(201)])(
-    "rejects empty or excessive titles",
+    "rejects empty or excessive title %j",
     (title) => expect(validateTask({ ...base, title })).toBeTruthy(),
   );
   it.each([0, 4, 481, 5.5, NaN])("rejects invalid duration %s", (minutes) =>
