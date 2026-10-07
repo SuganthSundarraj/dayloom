@@ -8,6 +8,7 @@ A responsive personal organizer with manual tasks, linked notes, a quick-capture
 | --- | --- | --- |
 | Live application | [Open Dayloom](https://dayloom-personal-organizer.anywherework-0233.chatgpt.site/) | Publicly hosted organizer; sign in to save your personal workspace in Supabase. |
 | Source code | [SuganthSundarraj/dayloom](https://github.com/SuganthSundarraj/dayloom) | Application code, SQL migrations, tests, and setup instructions. |
+| Project presentation | [Dayloom — Project Overview (Google Slides)](https://docs.google.com/presentation/d/1UBFbXgRTGIdOXkq6nbuy84HPavF0Z6WNt4mmRNGh14o/edit?usp=drivesdk) | Nine editable slides explaining features, architecture, technologies, deployment, and test coverage, with app and report links. |
 | Allure report | [Open the latest test report](https://suganthsundarraj.github.io/dayloom/) | Unit, database, and desktop/mobile browser test results from the latest report published from `main`. |
 | Build and test runs | [GitHub Actions](https://github.com/SuganthSundarraj/dayloom/actions/workflows/quality.yml) | Quality checks, logs, downloadable reports, and coverage artifacts for each run. |
 
